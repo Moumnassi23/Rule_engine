@@ -1,0 +1,22 @@
+# ============================================================
+# Rule Engine - Dépendances de développement
+# ============================================================
+# Pour tester et développer le moteur localement.
+# Installer avec : pip install -r requirements-dev.txt
+# ============================================================
+
+# Inclut toutes les dépendances de prod
+pyyaml==6.0.1
+
+# Tests
+pytest==7.4.4
+pytest-cov==4.1.0
+
+# Qualité de code
+ruff==0.1.14
+
+# Optionnel mais recommandé
+mypy==1.8.0
+
+# Validation des schémas
+pydantic==2.5.3
