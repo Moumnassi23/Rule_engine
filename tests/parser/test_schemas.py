@@ -2,9 +2,14 @@
 import pytest
 from pydantic import ValidationError
 
-from rule_engine.parser.schemas import InputDef
-from rule_engine.parser.schemas.conditions import ConditionGroup, LeafCondition
-from rule_engine.parser.schemas.metadata import RuleMetadata
+from rule_engine.parser.schemas import (
+    AggregateStep,
+    ConditionGroup,
+    InputDef,
+    LeafCondition,
+    Metric,
+    RuleMetadata,
+)
 
 
 def test_input_def_valid() -> None:
@@ -203,3 +208,54 @@ def test_condition_group_deep_nesting() -> None:
     assert niveau_3.logical == "AND"
     assert len(niveau_3.conditions) == 2
     assert niveau_3.conditions[0].column == "c"
+
+
+def test_aggregate_step_valid() -> None:
+    """Un AggregateStep valide cree les Metric correctement."""
+    agg = AggregateStep(
+        type="aggregate",
+        group_by=["tier_id"],
+        metrics=[
+            {"name": "solde_total", "function": "sum", "column": "solde"},
+        ],
+    )
+
+    assert agg.type == "aggregate"
+    assert agg.group_by == ["tier_id"]
+    assert len(agg.metrics) == 1
+    assert isinstance(agg.metrics[0], Metric)
+    assert agg.metrics[0].function == "sum"
+
+
+def test_aggregate_step_invalid_type() -> None:
+    """type='agg' au lieu de 'aggregate' leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=literal_error"):
+        AggregateStep(
+            type="agg",
+            group_by=["x"],
+            metrics=[{"name": "n", "function": "sum", "column": "c"}],
+        )
+
+
+# À toi : test_aggregate_step_invalid_function et test_aggregate_step_empty_group_by
+
+def test_aggregate_step_invalid_function() -> None:
+    """Une function d'aggregation inconnue leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=literal_error"):
+        AggregateStep(
+            type="aggregate",
+            group_by=["tier_id"],
+            metrics=[
+                {"name": "solde_median", "function": "median", "column": "solde"},
+            ],
+        )
+
+
+def test_aggregate_step_empty_group_by() -> None:
+    """Un group_by vide leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=too_short"):
+        AggregateStep(
+            type="aggregate",
+            group_by=[],
+            metrics=[{"name": "n", "function": "sum", "column": "c"}],
+        )
