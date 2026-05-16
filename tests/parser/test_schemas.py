@@ -3,6 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from rule_engine.parser.schemas import InputDef
+from rule_engine.parser.schemas.conditions import ConditionGroup, LeafCondition
 from rule_engine.parser.schemas.metadata import RuleMetadata
 
 
@@ -105,3 +106,100 @@ def test_rule_metadata_invalid_rule_date()->None:
         )
 
 
+
+# === Tests pour LeafCondition ===
+
+def test_leaf_condition_valid() -> None:
+    """Une LeafCondition avec column/operator/value est correctement creee."""
+    c = LeafCondition(column="etat", operator="==", value="VALIDE")
+    
+    assert c.column == "etat"
+    assert c.operator == "=="
+    assert c.value == "VALIDE"
+    assert c.values is None
+
+
+def test_leaf_condition_invalid_operator() -> None:
+    """Un operateur inconnu leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=literal_error"):
+        LeafCondition(column="etat", operator="EQUAL", value="VALIDE")
+
+
+# === Tests pour ConditionGroup ===
+
+def test_condition_group_simple() -> None:
+    """Un groupe AND avec 2 feuilles contient 2 LeafCondition."""
+    g = ConditionGroup(
+        logical="AND",
+        conditions=[
+            {"column": "etat", "operator": "==", "value": "VALIDE"},
+            {"column": "solde", "operator": ">=", "value": 1000},
+        ],
+    )
+    
+    assert g.logical == "AND"
+    assert len(g.conditions) == 2
+    assert isinstance(g.conditions[0], LeafCondition)
+    assert isinstance(g.conditions[1], LeafCondition)
+
+
+def test_condition_group_nested() -> None:
+    """Un groupe AND contenant un sous-groupe OR est bien parse recursivement."""
+    g = ConditionGroup(
+        logical="AND",
+        conditions=[
+            {"column": "etat", "operator": "==", "value": "VALIDE"},
+            {
+                "logical": "OR",
+                "conditions": [
+                    {"column": "type", "operator": "==", "value": "COURANT"},
+                    {"column": "type", "operator": "==", "value": "EPARGNE"},
+                ],
+            },
+        ],
+    )
+    
+    # L'enfant 0 est une feuille
+    assert isinstance(g.conditions[0], LeafCondition)
+    
+    # L'enfant 1 est un groupe OR
+    assert isinstance(g.conditions[1], ConditionGroup)
+    assert g.conditions[1].logical == "OR"
+    assert len(g.conditions[1].conditions) == 2
+
+
+def test_condition_group_invalid_logical() -> None:
+    """Un logical autre que AND/OR leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=literal_error"):
+        ConditionGroup(logical="XOR", conditions=[])
+
+
+def test_condition_group_deep_nesting() -> None:
+    """Une imbrication a 3 niveaux est correctement parsee."""
+    g = ConditionGroup(
+        logical="AND",
+        conditions=[
+            {"column": "a", "operator": "==", "value": 1},
+            {
+                "logical": "OR",
+                "conditions": [
+                    {"column": "b", "operator": "==", "value": 2},
+                    {
+                        "logical": "AND",
+                        "conditions": [
+                            {"column": "c", "operator": "==", "value": 3},
+                            {"column": "d", "operator": "==", "value": 4},
+                        ],
+                    },
+                ],
+            },
+        ],
+    )
+    
+    # Navigue jusqu'au niveau 3
+    niveau_3 = g.conditions[1].conditions[1]
+    
+    assert isinstance(niveau_3, ConditionGroup)
+    assert niveau_3.logical == "AND"
+    assert len(niveau_3.conditions) == 2
+    assert niveau_3.conditions[0].column == "c"
