@@ -6,13 +6,14 @@ from rule_engine.parser.schemas.conditions import (
 )
 from rule_engine.parser.schemas.inputs import InputDef
 from rule_engine.parser.schemas.metadata import RuleMetadata
-from rule_engine.parser.schemas.steps import AggregateStep, Metric
+from rule_engine.parser.schemas.steps import AggregateStep, JoinStep, Metric
 
 __all__ = [
     "AggregateStep",
     "Condition",
     "ConditionGroup",
     "InputDef",
+    "JoinStep",
     "LeafCondition",
     "Metric",
     "RuleMetadata",
