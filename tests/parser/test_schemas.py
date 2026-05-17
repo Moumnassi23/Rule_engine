@@ -6,11 +6,11 @@ from rule_engine.parser.schemas import (
     AggregateStep,
     ConditionGroup,
     InputDef,
+    JoinStep,            
     LeafCondition,
     Metric,
     RuleMetadata,
 )
-
 
 def test_input_def_valid() -> None:
     """Un InputDef valide est correctement instancie."""
@@ -237,7 +237,6 @@ def test_aggregate_step_invalid_type() -> None:
         )
 
 
-# À toi : test_aggregate_step_invalid_function et test_aggregate_step_empty_group_by
 
 def test_aggregate_step_invalid_function() -> None:
     """Une function d'aggregation inconnue leve ValidationError."""
@@ -259,3 +258,58 @@ def test_aggregate_step_empty_group_by() -> None:
             group_by=[],
             metrics=[{"name": "n", "function": "sum", "column": "c"}],
         )
+
+
+# === Tests pour JoinStep ===
+
+def test_join_step_valid_with_alias() -> None:
+    """Un JoinStep instancie avec l'alias 'with' (depuis YAML) fonctionne."""
+    join = JoinStep(**{
+        "type": "join",
+        "with": "tier",
+        "how": "left",
+        "broadcast": True,
+    })
+
+    assert join.with_table == "tier"
+    assert join.how == "left"
+    assert join.broadcast is True
+
+
+def test_join_step_default_values() -> None:
+    """Les valeurs par defaut sont appliquees quand non specifiees."""
+    join = JoinStep(**{"type": "join", "with": "tier"})
+
+    assert join.how == "inner"
+    assert join.broadcast is False
+    assert join.right_columns is None
+
+
+def test_join_step_with_right_columns() -> None:
+    """right_columns optionnel est bien parse."""
+    join = JoinStep(**{
+        "type": "join",
+        "with": "tier",
+        "right_columns": ["tier_id", "tier_nom"],
+    })
+
+    assert join.right_columns == ["tier_id", "tier_nom"]
+
+
+def test_join_step_populate_by_name() -> None:
+    """Le nom Python 'with_table' est aussi accepte (grace a populate_by_name)."""
+    join = JoinStep(type="join", with_table="tier")
+
+    assert join.with_table == "tier"
+
+
+def test_join_step_invalid_how() -> None:
+    """how='cross' (non autorise) leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=literal_error"):
+        JoinStep(**{"type": "join", "with": "tier", "how": "cross"})
+
+
+def test_join_step_empty_with() -> None:
+    """with vide (chaine vide) leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=string_too_short"):
+        JoinStep(**{"type": "join", "with": ""})
