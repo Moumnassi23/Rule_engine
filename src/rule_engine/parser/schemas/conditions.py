@@ -1,8 +1,11 @@
+"""Schemas Pydantic pour les conditions de filtre."""
 from typing import Literal, Union
+
 from pydantic import BaseModel, ConfigDict
 
 
-Value_type = Union[str, int, float, bool]
+# Types primitifs autorises pour les valeurs
+ValueType = str | int | float | bool
 
 
 class LeafCondition(BaseModel):
@@ -11,14 +14,18 @@ class LeafCondition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     column: str
-    operator: Literal["==", "!=", ">", "<", ">=", "<=", "in", "not_in", "is_null", "is_not_null"]
-    value: Value_type | None = None
-    values: list[Value_type] | None = None
+    operator: Literal[
+        "==", "!=", ">", "<", ">=", "<=",
+        "in", "not_in",
+        "is_null", "is_not_null",
+        "like",
+    ]
+    value: ValueType | None = None
+    values: list[ValueType] | None = None
 
 
 class ConditionGroup(BaseModel):
-
-    """Un groupe de conditions, avec un opérateur logique (AND/OR) et une liste de conditions enfants."""
+    """Un groupe de conditions combinees par AND ou OR."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -26,6 +33,7 @@ class ConditionGroup(BaseModel):
     conditions: list[Union[LeafCondition, "ConditionGroup"]]
 
 
+# Type alias pour utilisation externe
 Condition = Union[LeafCondition, "ConditionGroup"]
 
 
