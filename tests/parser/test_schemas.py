@@ -12,6 +12,7 @@ from rule_engine.parser.schemas import (
     RuleMetadata,
     FilterStep,
     Step,
+    Pipeline
 )
 
 def test_input_def_valid() -> None:
@@ -435,3 +436,35 @@ def test_step_discriminator_unknown_type() -> None:
 
     with pytest.raises(ValidationError, match="type=union_tag_invalid"):
         validator.validate_python({"type": "unknown"})
+
+
+# === Tests pour Pipeline ===
+
+def test_pipeline_valid() -> None:
+    """Une pipeline avec 3 steps de types differents est parsee correctement."""
+    p = Pipeline(steps=[
+        {"type": "filter", "column": "etat", "operator": "==", "value": "VALIDE"},
+        {"type": "join", "with": "tier"},
+        {
+            "type": "aggregate",
+            "group_by": ["tier_id"],
+            "metrics": [{"name": "solde_total", "function": "sum", "column": "solde"}],
+        },
+    ])
+
+    assert len(p.steps) == 3
+    assert isinstance(p.steps[0], FilterStep)
+    assert isinstance(p.steps[1], JoinStep)
+    assert isinstance(p.steps[2], AggregateStep)
+
+
+def test_pipeline_empty_rejected() -> None:
+    """Une pipeline sans step leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=too_short"):
+        Pipeline(steps=[])
+
+
+def test_pipeline_unknown_step_type() -> None:
+    """Un step avec un type inconnu leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=union_tag_invalid"):
+        Pipeline(steps=[{"type": "unknown"}])
