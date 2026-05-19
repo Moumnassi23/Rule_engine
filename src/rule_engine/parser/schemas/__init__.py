@@ -6,6 +6,7 @@ from rule_engine.parser.schemas.conditions import (
 )
 from rule_engine.parser.schemas.inputs import InputDef
 from rule_engine.parser.schemas.metadata import RuleMetadata
+from rule_engine.parser.schemas.pipeline import Pipeline
 from rule_engine.parser.schemas.steps import (
     AggregateStep,
     FilterStep,
@@ -23,6 +24,7 @@ __all__ = [
     "JoinStep",
     "LeafCondition",
     "Metric",
+    "Pipeline",
     "RuleMetadata",
     "Step",
 ]
