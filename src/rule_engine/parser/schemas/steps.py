@@ -1,8 +1,6 @@
 """Schemas Pydantic pour les steps de la pipeline."""
-from typing import Literal
-
+from typing import Annotated, Literal, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
 from rule_engine.parser.schemas.conditions import Condition, ValueType, ConditionGroup
 
 
@@ -104,4 +102,9 @@ class FilterStep(BaseModel):
 
 # Finalisation des forward references pour FilterStep
 # (FilterStep utilise Condition qui contient une forward ref vers ConditionGroup)
+Step = Annotated[
+    Union[FilterStep, JoinStep, AggregateStep],
+    Field(discriminator="type"),
+]
+
 FilterStep.model_rebuild()
