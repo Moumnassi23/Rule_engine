@@ -10,6 +10,7 @@ from rule_engine.parser.schemas import (
     LeafCondition,
     Metric,
     RuleMetadata,
+    FilterStep,
 )
 
 def test_input_def_valid() -> None:
@@ -313,3 +314,86 @@ def test_join_step_empty_with() -> None:
     """with vide (chaine vide) leve ValidationError."""
     with pytest.raises(ValidationError, match="type=string_too_short"):
         JoinStep(**{"type": "join", "with": ""})
+
+
+# === Tests pour FilterStep ===
+
+def test_filter_step_simple_form() -> None:
+    """Forme A : condition simple a plat."""
+    f = FilterStep(type="filter", column="etat", operator="==", value="VALIDE")
+
+    assert f.column == "etat"
+    assert f.operator == "=="
+    assert f.value == "VALIDE"
+    assert f.conditions is None
+
+
+def test_filter_step_multiple_form() -> None:
+    """Forme B : conditions multiples avec logical."""
+    f = FilterStep(
+        type="filter",
+        logical="AND",
+        conditions=[
+            {"column": "etat", "operator": "==", "value": "VALIDE"},
+            {"column": "solde", "operator": ">=", "value": 1000},
+        ],
+    )
+
+    assert f.logical == "AND"
+    assert len(f.conditions) == 2
+    assert f.column is None
+
+
+def test_filter_step_nested_form() -> None:
+    """Forme C : conditions imbriquees (recursion)."""
+    f = FilterStep(
+        type="filter",
+        logical="AND",
+        conditions=[
+            {"column": "etat", "operator": "==", "value": "VALIDE"},
+            {
+                "logical": "OR",
+                "conditions": [
+                    {"column": "type", "operator": "==", "value": "COURANT"},
+                    {"column": "type", "operator": "==", "value": "EPARGNE"},
+                ],
+            },
+        ],
+    )
+
+    assert isinstance(f.conditions[1], ConditionGroup)
+    assert f.conditions[1].logical == "OR"
+
+
+def test_filter_step_mixed_forms_rejected() -> None:
+    """Melanger forme simple et forme multiple leve ValidationError."""
+    with pytest.raises(ValidationError, match="ne peut pas avoir a la fois"):
+        FilterStep(
+            type="filter",
+            column="etat",
+            operator="==",
+            value="VALIDE",
+            logical="AND",
+            conditions=[],
+        )
+
+
+def test_filter_step_no_form_rejected() -> None:
+    """Un filter sans aucune forme leve ValidationError."""
+    with pytest.raises(ValidationError, match="doit avoir soit"):
+        FilterStep(type="filter")
+
+
+def test_filter_step_simple_without_operator() -> None:
+    """Forme simple sans operator leve ValidationError."""
+    with pytest.raises(ValidationError, match="'operator' est obligatoire"):
+        FilterStep(type="filter", column="etat")
+
+
+def test_filter_step_multiple_without_logical() -> None:
+    """Forme multiple sans logical leve ValidationError."""
+    with pytest.raises(ValidationError, match="'logical' est obligatoire"):
+        FilterStep(
+            type="filter",
+            conditions=[{"column": "x", "operator": "==", "value": 1}],
+        )
