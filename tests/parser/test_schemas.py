@@ -12,7 +12,8 @@ from rule_engine.parser.schemas import (
     RuleMetadata,
     FilterStep,
     Step,
-    Pipeline
+    Pipeline,
+    Rule,
 )
 
 def test_input_def_valid() -> None:
@@ -468,3 +469,72 @@ def test_pipeline_unknown_step_type() -> None:
     """Un step avec un type inconnu leve ValidationError."""
     with pytest.raises(ValidationError, match="type=union_tag_invalid"):
         Pipeline(steps=[{"type": "unknown"}])
+
+
+# === Tests pour Rule ===
+
+def test_rule_valid_complete() -> None:
+    """Une regle complete avec metadata + inputs + pipeline est correctement creee."""
+    rule = Rule(
+        version="1.0.0",
+        description="Calcul du solde par tier",
+        rule_date="2026-05-14",
+        exec_date="${exec_date}",
+        commit_id="abc123",
+        inputs=[
+            {"name": "compte", "table": "silver.compte"},
+            {"name": "tier", "table": "silver.tier"},
+        ],
+        pipeline={
+            "steps": [
+                {"type": "filter", "column": "etat", "operator": "==", "value": "VALIDE"},
+                {"type": "join", "with": "tier"},
+            ]
+        },
+    )
+
+    assert rule.version == "1.0.0"
+    assert rule.commit_id == "abc123"
+    assert len(rule.inputs) == 2
+    assert isinstance(rule.inputs[0], InputDef)
+    assert isinstance(rule.pipeline, Pipeline)
+    assert len(rule.pipeline.steps) == 2
+
+
+def test_rule_empty_inputs_rejected() -> None:
+    """Une regle sans inputs leve ValidationError."""
+    with pytest.raises(ValidationError, match="type=too_short"):
+        Rule(
+            version="1.0.0",
+            description="Calcul du solde par tier",
+            rule_date="2026-05-14",
+            exec_date="2026-05-14",
+            inputs=[],
+            pipeline={"steps": [{"type": "join", "with": "tier"}]},
+        )
+
+
+def test_rule_invalid_version_inherited() -> None:
+    """Le pattern semver est herite de RuleMetadata."""
+    with pytest.raises(ValidationError, match="type=string_pattern_mismatch"):
+        Rule(
+            version="1.0",
+            description="Calcul du solde par tier",
+            rule_date="2026-05-14",
+            exec_date="2026-05-14",
+            inputs=[{"name": "compte", "table": "silver.compte"}],
+            pipeline={"steps": [{"type": "join", "with": "tier"}]},
+        )
+
+
+def test_rule_invalid_exec_date_validator_inherited() -> None:
+    """Le validator d'exec_date est herite de RuleMetadata."""
+    with pytest.raises(ValidationError, match="exec_date doit etre"):
+        Rule(
+            version="1.0.0",
+            description="Calcul du solde par tier",
+            rule_date="2026-05-14",
+            exec_date="pas une date",
+            inputs=[{"name": "compte", "table": "silver.compte"}],
+            pipeline={"steps": [{"type": "join", "with": "tier"}]},
+        )
