@@ -1,0 +1,40 @@
+version: "1.0.0"
+description: "Calcul du solde total par tier pour la date de reference"
+rule_date: "2026-05-14"
+exec_date: "${exec_date}"
+commit_id: ""
+
+inputs:
+  - {name: compte, table: silver.compte}
+  - {name: code_etat_compte, table: silver.code_etat_compte}
+  - {name: mouvement, table: silver.mouvement}
+  - {name: tier, table: silver.tier}
+
+pipeline:
+  steps:
+    - type: join
+      with: code_etat_compte
+      broadcast: true
+
+    - type: filter
+      column: etat
+      operator: "=="
+      value: "VALIDE"
+
+    - type: join
+      with: mouvement
+
+    - type: filter
+      column: date_mouvement
+      operator: "=="
+      value: "${exec_date}"
+
+    - type: join
+      with: tier
+      broadcast: true
+
+    - type: aggregate
+      group_by: [tier_id, tier_nom]
+      metrics:
+        - {name: solde_total, function: sum, column: solde}
+        - {name: nb_comptes, function: count_distinct, column: compte_id}
