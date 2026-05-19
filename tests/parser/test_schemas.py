@@ -11,6 +11,7 @@ from rule_engine.parser.schemas import (
     Metric,
     RuleMetadata,
     FilterStep,
+    Step,
 )
 
 def test_input_def_valid() -> None:
@@ -397,3 +398,40 @@ def test_filter_step_multiple_without_logical() -> None:
             type="filter",
             conditions=[{"column": "x", "operator": "==", "value": 1}],
         )
+
+# === Tests pour l'union discriminee Step ===
+
+def test_step_discriminator_filter() -> None:
+    """Un dict avec type='filter' est parse comme FilterStep."""
+    from pydantic import TypeAdapter
+
+    validator = TypeAdapter(Step)
+    s = validator.validate_python({
+        "type": "filter",
+        "column": "etat",
+        "operator": "==",
+        "value": "VALIDE",
+    })
+
+    assert isinstance(s, FilterStep)
+
+
+def test_step_discriminator_join() -> None:
+    """Un dict avec type='join' est parse comme JoinStep."""
+    from pydantic import TypeAdapter
+
+    validator = TypeAdapter(Step)
+    s = validator.validate_python({"type": "join", "with": "tier"})
+
+    assert isinstance(s, JoinStep)
+    assert s.with_table == "tier"
+
+
+def test_step_discriminator_unknown_type() -> None:
+    """Un type inconnu leve ValidationError avec un message clair."""
+    from pydantic import TypeAdapter
+
+    validator = TypeAdapter(Step)
+
+    with pytest.raises(ValidationError, match="type=union_tag_invalid"):
+        validator.validate_python({"type": "unknown"})
