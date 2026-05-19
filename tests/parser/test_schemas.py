@@ -1,6 +1,16 @@
 """Tests des schemas Pydantic."""
 import pytest
 from pydantic import ValidationError
+from pathlib import Path
+
+import pytest
+
+from rule_engine.parser import (
+    Rule,
+    RuleLoadError,
+    RuleSchemaError,
+    parse_rule,
+)
 
 from rule_engine.parser.schemas import (
     AggregateStep,
@@ -538,3 +548,75 @@ def test_rule_invalid_exec_date_validator_inherited() -> None:
             inputs=[{"name": "compte", "table": "silver.compte"}],
             pipeline={"steps": [{"type": "join", "with": "tier"}]},
         )
+
+
+"""Tests de la fonction publique parse_rule()."""
+
+
+
+def test_parse_rule_valid_yaml(tmp_path: Path) -> None:
+    """Un YAML valide est parse en objet Rule complet."""
+    yaml_file = tmp_path / "rule.yaml"
+    yaml_file.write_text(
+        """
+version: "1.0.0"
+description: "Test description longue assez."
+rule_date: "2026-05-14"
+exec_date: "2026-05-14"
+
+inputs:
+  - {name: compte, table: silver.compte}
+
+pipeline:
+  steps:
+    - type: filter
+      column: etat
+      operator: "=="
+      value: "VALIDE"
+""",
+        encoding="utf-8",
+    )
+
+    rule = parse_rule(yaml_file)
+
+    assert isinstance(rule, Rule)
+    assert rule.version == "1.0.0"
+    assert len(rule.inputs) == 1
+    assert len(rule.pipeline.steps) == 1
+
+
+def test_parse_rule_missing_file(tmp_path: Path) -> None:
+    """Un fichier inexistant leve RuleLoadError (propage du loader)."""
+    missing = tmp_path / "missing.yaml"
+
+    with pytest.raises(RuleLoadError, match="introuvable"):
+        parse_rule(missing)
+
+
+def test_parse_rule_invalid_schema(tmp_path: Path) -> None:
+    """Un YAML avec un schema invalide leve RuleSchemaError."""
+    yaml_file = tmp_path / "bad_schema.yaml"
+    yaml_file.write_text(
+        """
+        version: "1.0"
+        description: "Test"
+        rule_date: "2026-05-14"
+        exec_date: "2026-05-14"
+        inputs: []
+        pipeline:
+        steps: []
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuleSchemaError, match="ne respecte pas la structure"):
+        parse_rule(yaml_file)
+
+
+def test_parse_rule_malformed_yaml(tmp_path: Path) -> None:
+    """Un YAML mal forme leve RuleLoadError (pas RuleSchemaError)."""
+    yaml_file = tmp_path / "bad_yaml.yaml"
+    yaml_file.write_text("version: [unclosed", encoding="utf-8")
+
+    with pytest.raises(RuleLoadError, match="YAML invalide"):
+        parse_rule(yaml_file)
